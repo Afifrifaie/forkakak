@@ -9,5 +9,5 @@ node render.cjs frames "$WORK/frames" "${WORKERS:-4}"
 node synth.js "$WORK/soundtrack.wav"
 ffmpeg -y -loglevel error -framerate 60 -i "$WORK/frames/f%04d.jpg" -i "$WORK/soundtrack.wav" \
   -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p -profile:v high -level 4.2 -r 60 \
-  -c:a aac -b:a 256k -ar 44100 -movflags +faststart -t 15 tha-writing.mp4
+  -c:a aac -b:a 256k -ar 48000 -movflags +faststart -t 15 tha-writing.mp4
 echo "done -> $(pwd)/tha-writing.mp4"
