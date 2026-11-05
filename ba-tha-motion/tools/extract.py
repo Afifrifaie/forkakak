@@ -79,7 +79,7 @@ print('ba comps', [len(c) for c in cs])
 save('ba_body', keep_only(a, body), BLUE, bbox(body), SS)
 save('ba_dot', keep_only(a, dot), BLUE, bbox(dot), SS, dict(cx=float(np.mean([p[1] for p in dot])), cy=float(np.mean([p[0] for p in dot]))))
 # ---- where the tha bowl/dots sit relative to the ba bowl (same bowl, shifted) ----
-at = alpha_for(th, BLUE, CREAM, (440, 700, 300, 760), resid=False)
+at = alpha_for(th, BLUE, CREAM, (360, 700, 300, 760), resid=False)
 tc = sorted(comps(at), key=lambda c: -len(c))
 tbody = np.zeros(at.shape, bool)
 for y, x in tc[0]: tbody[y, x] = True

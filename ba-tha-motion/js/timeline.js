@@ -12,7 +12,7 @@
     row: { ba: 5.0, bi: 5.22, bu: 5.44 }, rowDot: 0.07, rowMark: 0.13, rowLabel: [0.2, 0.5], popDur: 0.42,
     zoom: [6.0, 7.4], cardFade: [6.2, 7.2],
     penBack: [7.7, 7.85], retract: [7.85, 8.55], zoomOut: [7.8, 9.0], dotSlide: [8.2, 8.9],
-    wordWrite: [8.95, 10.85], seamT: 9.3,
+    wordWrite: [8.95, 10.85], wordBase: [8.95, 9.25], thWrite: [9.4, 10.85], seamT: 9.4,
     thaDots: [11.1, 11.45, 11.8],
     penExit2: [12.15, 12.65],
     cap: { ba: [12.25, 12.65], plus: 12.68, tha: [12.78, 13.25] },

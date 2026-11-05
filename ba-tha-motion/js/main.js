@@ -33,7 +33,7 @@
   // ---------- pen paths ----------
   // centre-line of the isolated ba (written right -> left): measured against the glyph, same stroke as the tha' card
   const BA_CTRL = [[706, 435], [711, 467], [716, 504], [715, 539], [706, 569], [684, 585], [644, 593], [594, 599], [544, 602], [494, 604], [444, 599], [404, 585], [372, 565], [349, 537], [337, 504], [338, 467], [346, 431]];
-  const SEAM_X = 640, EXT = 84;                      // where the isolated bowl is cut, and how far the joining stroke reaches
+  const SEAM_X = 640;                                // the isolated ba keeps its tooth/wall/curve to the right of this x; the base stroke is written from here
 
   function catmull(P, step = 2.5) {
     const out = []; const pts = [P[0], ...P, P[P.length - 1]];
@@ -165,68 +165,29 @@
     }
   }
 
-  // blur + re-threshold the alpha around a seam so the slid bowl and the joining band meet without a step
-  function smoothSeam(cvs, rect, xc, half) {
-    const pw = cvs.width, ph = cvs.height, cx = cvs.getContext('2d'), id = cx.getImageData(0, 0, pw, ph);
-    const c0 = Math.round((xc - rect.x) * SS), hw = half * SS, x0 = Math.max(0, c0 - hw - 12), x1 = Math.min(pw, c0 + hw + 12), w = x1 - x0;
-    let A = new Float32Array(w * ph), T = new Float32Array(w * ph);
-    for (let r = 0; r < ph; r++) for (let c = 0; c < w; c++) A[r * w + c] = id.data[(r * pw + x0 + c) * 4 + 3] / 255;
-    const R = 5;
-    for (let pass = 0; pass < 2; pass++) {
-      for (let r = 0; r < ph; r++) for (let c = 0; c < w; c++) { let sum = 0, n = 0; for (let k = -R; k <= R; k++) { const cc = c + k; if (cc >= 0 && cc < w) { sum += A[r * w + cc]; n++; } } T[r * w + c] = sum / n; }
-      for (let r = 0; r < ph; r++) for (let c = 0; c < w; c++) { let sum = 0, n = 0; for (let k = -R; k <= R; k++) { const rr = r + k; if (rr >= 0 && rr < ph) { sum += T[rr * w + c]; n++; } } A[r * w + c] = sum / n; }
-    }
-    for (let r = 0; r < ph; r++) for (let c = 0; c < w; c++) {
-      const i = (r * pw + x0 + c) * 4, o = id.data[i + 3] / 255, sm = clamp((A[r * w + c] - 0.5) * 3 + 0.5);
-      const wgt = clamp((hw - Math.abs(x0 + c - c0)) / 12 + 0.0); const v = lerp(o, sm, wgt);
-      id.data[i] = BLUE[0]; id.data[i + 1] = BLUE[1]; id.data[i + 2] = BLUE[2]; id.data[i + 3] = Math.round(v * 255);
-    }
-    cx.putImageData(id, 0, 0);
-  }
-
   // ---------- build everything once ----------
   const G = {};                                  // derived geometry
-  let R_ba, R_wB, bigCv, bigX;
+  let R_ba, R_base, R_th, bigCv, bigX;
   function setup() {
     // isolated ba, reveal-able
     const l = lay('ba_body'); const c1 = document.createElement('canvas'); c1.width = l.w * SS; c1.height = l.h * SS; c1.getContext('2d').drawImage(IMG.ba_body, 0, 0);
     R_ba = buildReveal(c1, l, BA_CTRL, WET_BLUE, BLUE, 70);
-    // silhouette edges of the band at a given card-x (top / bottom y of the stroke)
-    const edges = xc => { const col = Math.round((xc - l.x) * SS); let top = null, bot = null;
-      for (let r = 0; r < l.h * SS; r++) { let a = 0; for (let k = -1; k <= 1; k++) a += R_ba.a[r * l.w * SS + col + k]; a /= 3; if (a > 128) { if (top === null) top = r; bot = r; } }
-      // the isolated ba also has the spike on the far right; at x < 700 the first run is the band itself
-      return [l.y + top / SS, l.y + bot / SS]; };
-    const e640 = edges(SEAM_X), e600 = edges(SEAM_X - 40);
-    const slope = ((e640[0] - e600[0]) + (e640[1] - e600[1])) / 80;   // band rises to the right (slope < 0)
-    G.dy = -slope * EXT; G.e640 = e640;
-    // word: the final tha = the same bowl, slid left by EXT and down by dy, with a straight band bridging to the ba's tooth
-    const bw = { x: l.x - EXT - 4, y: l.y, w: l.w + EXT + 8, h: l.h + Math.ceil(G.dy) + 2 };
-    const c2 = document.createElement('canvas'); c2.width = Math.ceil(bw.w) * SS; c2.height = Math.ceil(bw.h) * SS; bw.w = c2.width / SS; bw.h = c2.height / SS;
-    const x2 = c2.getContext('2d'); x2.scale(SS, SS); x2.translate(-bw.x, -bw.y);
-    x2.save(); x2.translate(-EXT, G.dy); x2.beginPath(); x2.rect(0, 0, SEAM_X, 4000); x2.clip(); x2.drawImage(IMG.ba_body, l.x, l.y, l.w, l.h); x2.restore();   // cut in the glyph's own coordinates, then slide
-    x2.fillStyle = rgb(BLUE); x2.beginPath();
-    x2.moveTo(SEAM_X - EXT - 1.5, e640[0] + G.dy - 0.15); x2.lineTo(SEAM_X + 1.2, e640[0] - 0.15); x2.lineTo(SEAM_X + 1.2, e640[1] + 0.15); x2.lineTo(SEAM_X - EXT - 1.5, e640[1] + G.dy + 0.15); x2.closePath(); x2.fill();
-    smoothSeam(c2, bw, SEAM_X - EXT, 16);
-    const mid0 = (e640[0] + e640[1]) / 2;
-    const bPts = BA_CTRL.filter(p => p[0] < SEAM_X - 20).map(p => [p[0] - EXT, p[1] + G.dy]);
-    const P2ctrl = [[SEAM_X, mid0], [SEAM_X - EXT / 2, mid0 + G.dy / 2], ...bPts];
-    R_wB = buildReveal(c2, bw, P2ctrl, WET_BLUE, BLUE, 70);
+    // the joined word: a short base stroke (carries the tooth to the peak) and the final-form tha (bowl with a small peak), both designed in tools/make_word.py
+    const WD = MAN.word; G.WD = WD;
+    const mkR = (name, ctrl) => { const lw = lay(name); const c = document.createElement('canvas'); c.width = lw.w * SS; c.height = lw.h * SS; c.getContext('2d').drawImage(IMG[name], 0, 0); return buildReveal(c, lw, ctrl, WET_BLUE, BLUE, 60); };
+    R_base = mkR('word_base', WD.base_ctrl); R_th = mkR('word_th', WD.th_ctrl);
     // retract target: the point of the ba path where the band reaches the seam
     const pts = R_ba.P.pts; let sc = 0; for (let i = 0; i < pts.length; i++) if (pts[i][1] > 560 && pts[i][0] <= SEAM_X) { sc = R_ba.P.cum[i]; break; }
     G.sCut = sc;
-    // dots
-    const dc = centre('ba_dot'); G.dotHome = dc;
-    G.dotTarget = [696, e640[1] + 14 + lay('ba_dot').h / 2 - 6];
-    G.thaDots = MAN.tha_dots.map(d => [d.cx - EXT, d.cy + G.dy]);
+    G.dotHome = centre('ba_dot'); G.dotTarget = WD.dot_target; G.thaDots = WD.th_dots;
     bigCv = document.createElement('canvas'); bigCv.width = W; bigCv.height = H; bigX = bigCv.getContext('2d');
-    // word bounding box (for the pulse) in card space
-    G.wordC = [487, 560];
+    G.wordC = [467, 560];                                  // centre of the finished word (for the pulse)
   }
 
   // ---------- pen choreography ----------
   function penState(t) {
     const segs = [];
-    const P = R_ba.P, P2 = R_wB.P; const baStart = pathAt(P, 0), baEnd = pathAt(P, P.total), seamPt = pathAt(P, G.sCut);
+    const P = R_ba.P, PB = R_base.P, PT = R_th.P; const baStart = pathAt(P, 0), baEnd = pathAt(P, P.total), seamPt = pathAt(P, G.sCut);
     const park = [850, 330];
     segs.push({ t0: TL.penIn[0], t1: TL.baBody[0], from: [park[0] + 60, park[1] - 60], to: baStart, lift: [1, 0.15], a: [0, 1] });
     segs.push({ t0: TL.baBody[0], t1: TL.baBody[1], path: P, prog: u => TL.prog(u) });
@@ -236,10 +197,12 @@
     // retract: pen appears at the left tip and pulls the ink back to the tooth
     segs.push({ t0: TL.penBack[0], t1: TL.penBack[1], hold: baEnd, lift: [1, 0.2], a: [0, 1] });
     segs.push({ t0: TL.retract[0], t1: TL.retract[1], path: P, prog: u => 1 - (1 - G.sCut / P.total) * eIO3(u) });
-    segs.push({ t0: TL.retract[1], t1: TL.wordWrite[0], hold: seamPt, lift: [0.1, 0.05] });
-    segs.push({ t0: TL.wordWrite[0], t1: TL.wordWrite[1], path: P2, prog: u => TL.prog(u) });
+    segs.push({ t0: TL.retract[1], t1: TL.wordBase[0], hold: seamPt, lift: [0.1, 0.05] });
+    segs.push({ t0: TL.wordBase[0], t1: TL.wordBase[1], path: PB, prog: u => TL.prog(u) });
+    segs.push({ t0: TL.wordBase[1], t1: TL.thWrite[0], from: pathAt(PB, PB.total), to: pathAt(PT, 0), lift: [0.25, 0.15], arc: 16 });
+    segs.push({ t0: TL.thWrite[0], t1: TL.thWrite[1], path: PT, prog: u => TL.prog(u) });
     // ث dots
-    const td = G.thaDots; let prev = pathAt(P2, P2.total), pt = TL.wordWrite[1];
+    const td = G.thaDots; let prev = pathAt(PT, PT.total), pt = TL.thWrite[1];
     TL.thaDots.forEach((ts, i) => { segs.push({ t0: pt, t1: ts - 0.02, from: prev, to: td[i], lift: [0.5, 0], arc: 40 }); segs.push({ t0: ts - 0.02, t1: ts + 0.18, hold: td[i], lift: [0, 0.35] }); prev = td[i]; pt = ts + 0.18; });
     segs.push({ t0: pt, t1: TL.penExit2[1], from: prev, to: [prev[0] + 150, prev[1] - 190], lift: [0.3, 1], a: [1, 0] });
     for (const s of segs) {
@@ -255,7 +218,7 @@
   }
 
   // ---------- camera ----------
-  const Z_END = 1.5, C_END = [487, 597];
+  const Z_END = 1.5, C_END = [467, 612];
   const CAM = [
     { t: 0, s: 1, x: 540, y: 675 }, { t: 5.95, s: 1, x: 540, y: 675 },
     { t: 7.4, s: 2.4, x: 528, y: 535 }, { t: 7.8, s: 2.4, x: 528, y: 535 },
@@ -293,7 +256,7 @@
   }
 
   function inkFlecks(g, t, z) {
-    const jobs = [{ P: R_ba.P, t0: TL.baBody[0], t1: TL.baBody[1], col: WET_BLUE }, { P: R_wB.P, t0: TL.wordWrite[0], t1: TL.wordWrite[1], col: WET_BLUE }];
+    const jobs = [{ P: R_ba.P, t0: TL.baBody[0], t1: TL.baBody[1], col: WET_BLUE }, { P: R_base.P, t0: TL.wordBase[0], t1: TL.wordBase[1], col: WET_BLUE }, { P: R_th.P, t0: TL.thWrite[0], t1: TL.thWrite[1], col: WET_BLUE }];
     for (const j of jobs) {
       if (t < j.t0 || t > j.t1 + 0.6) continue;
       const dt = 0.016, i1 = Math.floor((Math.min(t, j.t1) - j.t0) / dt);
@@ -372,11 +335,9 @@
       popAt(g, 'ba_dot', cx, cy, seg(t, TL.baDot, TL.baDot + TL.dotDur), -0.7);
       if (t < TL.dotSlide[0] + 0.01 || true) { ring(g, G.dotHome[0], G.dotHome[1], TL.baDot + 0.04, t, BLUE, 30, 88, 3.5); burst(g, G.dotHome[0], G.dotHome[1], TL.baDot + 0.03, t, BLUE, 7, 62, 7, 3); }
     }
-    // the joined tha
-    if (t >= TL.wordWrite[0]) {
-      const u = seg(t, TL.wordWrite[0], TL.wordWrite[1]);
-      drawReveal(g, R_wB, t >= TL.wordWrite[1] ? 1e4 : lerp(-FEATHER, R_wB.P.total + FEATHER, TL.prog(u)));
-    }
+    // the joined word: base stroke from the tooth, then the final-form tha
+    if (t >= TL.wordBase[0]) { const u = seg(t, TL.wordBase[0], TL.wordBase[1]); drawReveal(g, R_base, t >= TL.wordBase[1] ? 1e4 : lerp(-FEATHER, R_base.P.total + FEATHER, TL.prog(u))); }
+    if (t >= TL.thWrite[0]) { const u = seg(t, TL.thWrite[0], TL.thWrite[1]); drawReveal(g, R_th, t >= TL.thWrite[1] ? 1e4 : lerp(-FEATHER, R_th.P.total + FEATHER, TL.prog(u))); }
     G.thaDots.forEach((d, i) => { const t0 = TL.thaDots[i]; popAt(g, 'ba_dot', d[0], d[1], seg(t, t0, t0 + TL.dotDur), [-0.6, 0.6, -0.4][i]); ring(g, d[0], d[1], t0 + 0.04, t, BLUE, 30, 88, 3.5); burst(g, d[0], d[1], t0 + 0.03, t, BLUE, 7, 62, 7, i * 13 + 1); });
     g.restore();
     if (sweeping) {
@@ -398,6 +359,6 @@
   }
 
   window.renderFrame = t => { frame(t); };
-  window.__debug = { BA_CTRL, get R_ba() { return R_ba; }, get R_wB() { return R_wB; }, G, lay, IMG, pathAt };
+  window.__debug = { BA_CTRL, get R_ba() { return R_ba; }, get R_base() { return R_base; }, get R_th() { return R_th; }, G, lay, IMG, pathAt };
   window.__ready = loadAll().then(() => { sweepCv = document.createElement('canvas'); sweepCv.width = W; sweepCv.height = H; sweepX = sweepCv.getContext('2d'); const t0 = performance.now(); setup(); console.log('setup ms', Math.round(performance.now() - t0)); frame(0); return true; });
 })();

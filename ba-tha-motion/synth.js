@@ -120,8 +120,9 @@ tick(TL.retract[1], 0.20, 1400, 0.2); thump(TL.retract[1], 180, 100, 0.16, 0.07)
 tick(TL.dotSlide[1], 0.12, 2000, 0.4);
 
 // ---- scene 6: tha is written and joined ------------------------------------------------------------------------
-noiseBand(TL.wordWrite[0], TL.wordWrite[1], u => Math.min(1, u * 40) * Math.min(1, (1 - u) * 25) * (0.04 + 0.4 * dprog(u)), u => 2300 + 2300 * dprog(u) + 700 * Math.sin(u * 40), 2.6, panAt(640, 255, 487, 300), 0.25, 0.35);
-noiseBand(TL.wordWrite[0], TL.wordWrite[1], u => (0.02 + 0.22 * dprog(u)), u => 420 + 200 * dprog(u), 1.2, panAt(640, 255, 487, 600), 0.2);
+noiseBand(TL.wordBase[0], TL.wordBase[1], u => Math.min(1, u * 30) * Math.min(1, (1 - u) * 15) * (0.04 + 0.3 * dprog(u)), u => 2600 + 1800 * dprog(u), 2.6, panAt(640, 532, 467, 300), 0.25, 0.3);
+noiseBand(TL.thWrite[0], TL.thWrite[1], u => Math.min(1, u * 40) * Math.min(1, (1 - u) * 25) * (0.04 + 0.4 * dprog(u)), u => 2300 + 2300 * dprog(u) + 700 * Math.sin(u * 40), 2.6, panAt(582, 208, 467, 300), 0.25, 0.35);
+noiseBand(TL.thWrite[0], TL.thWrite[1], u => (0.02 + 0.22 * dprog(u)), u => 420 + 200 * dprog(u), 1.2, panAt(582, 208, 467, 600), 0.2);
 [74, 81].forEach((m, i) => { pluck(TL.seamT + i * 0.03, hz(m), 0.20, 0.1 - i * 0.2, 0.9); bell(TL.seamT + i * 0.03, hz(m + 12), 0.07, 0, 1.6); });       // the join: a perfect fifth
 TL.thaDots.forEach((t, i) => { const pan = [0.25, -0.25, 0][i]; pluck(t, hz([81, 83, 86][i]), 0.34, pan, 0.6); pluck(t, hz([69, 71, 74][i]), 0.10, 0, 0.5); tick(t - 0.005, 0.26, 1500 + 300 * i, pan); thump(t, 160, 90, 0.18, 0.08); });
 
