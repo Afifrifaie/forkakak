@@ -111,18 +111,23 @@ thump(TL.zoom[1], 70, 42, 0.32, 0.22);
 bell(TL.zoom[1] + 0.05, hz(62), 0.10, 0, 2.2);
 
 // ---- scene 5: shrink and re-form ---------------------------------------------------------------------------
-noiseBand(TL.retract[0], TL.retract[1] + 0.05, u => Math.pow(u, 1.4) * 0.22 * Math.min(1, (1 - u) * 14), u => 6500 - 4800 * u, 6, u => 0.7 - 1.4 * u, 0.8);     // reverse shimmer as the bowl is pulled back
-{ const s0 = Math.floor(TL.retract[0] * SR), s1 = Math.floor(TL.retract[1] * SR); let ph = 0;
-  for (let i = s0; i < s1; i++) { const u = (i - s0) / (s1 - s0), f = 1500 - 900 * u; ph += TAU * f / SR; add(i, Math.sin(ph) * Math.pow(u, 2) * 0.07, -0.2, 0.8); } }
-tick(TL.retract[1], 0.20, 1400, 0.2); thump(TL.retract[1], 180, 100, 0.16, 0.07);
+// the eraser rubbing the bowl away: a dry, papery scrub, one stroke per 1/13 s, with a few crumbs of grit
+{ const r0 = TL.retract[0], r1 = TL.retract[1];
+  noiseBand(r0, r1, u => Math.min(1, u * 25) * Math.min(1, (1 - u) * 12) * (0.05 + 0.26 * Math.pow(Math.abs(Math.sin(2 * Math.PI * 6.5 * (r0 + u * (r1 - r0)))), 0.7)), u => 1300 + 900 * Math.abs(Math.sin(2 * Math.PI * 6.5 * (r0 + u * (r1 - r0)))), 1.7, panAt(346, 600, 467, 330), 0.2, 0.2);
+  noiseBand(r0, r1, u => 0.03 + 0.10 * Math.pow(Math.abs(Math.sin(2 * Math.PI * 6.5 * (r0 + u * (r1 - r0)))), 1.2), u => 3600, 2.2, panAt(346, 600, 467, 330), 0.15, 0.4);
+  for (let i = 0; i < 9; i++) tick(r0 + 0.05 + i * 0.075 + rnd() * 0.02, 0.05, 2600 + rnd() * 1200, -0.3 + 0.7 * (i / 8)); }
+thump(TL.eraserIn[1], 140, 80, 0.12, 0.06); tick(TL.eraserIn[1], 0.12, 1000, -0.3);
+thump(TL.retract[1], 180, 100, 0.14, 0.07); tick(TL.retract[1] + 0.02, 0.16, 1700, 0.2);
+tick(TL.penReturn[1], 0.14, 1400, 0.2);
 { const s0 = Math.floor(TL.dotSlide[0] * SR), s1 = Math.floor(TL.dotSlide[1] * SR); let ph = 0;                          // the dot gliding to its new place
   for (let i = s0; i < s1; i++) { const u = (i - s0) / (s1 - s0), f = 900 - 220 * u; ph += TAU * f / SR; add(i, Math.sin(ph) * Math.sin(Math.PI * u) * 0.05, 0.4, 0.8); } }
 tick(TL.dotSlide[1], 0.12, 2000, 0.4);
 
 // ---- scene 6: tha is written and joined ------------------------------------------------------------------------
-noiseBand(TL.wordBase[0], TL.wordBase[1], u => Math.min(1, u * 30) * Math.min(1, (1 - u) * 15) * (0.04 + 0.3 * dprog(u)), u => 2600 + 1800 * dprog(u), 2.6, panAt(640, 532, 467, 300), 0.25, 0.3);
-noiseBand(TL.thWrite[0], TL.thWrite[1], u => Math.min(1, u * 40) * Math.min(1, (1 - u) * 25) * (0.04 + 0.4 * dprog(u)), u => 2300 + 2300 * dprog(u) + 700 * Math.sin(u * 40), 2.6, panAt(582, 208, 467, 300), 0.25, 0.35);
-noiseBand(TL.thWrite[0], TL.thWrite[1], u => (0.02 + 0.22 * dprog(u)), u => 420 + 200 * dprog(u), 1.2, panAt(582, 208, 467, 600), 0.2);
+noiseBand(TL.wordBase[0], TL.wordBase[1], u => Math.min(1, u * 30) * Math.min(1, (1 - u) * 15) * (0.04 + 0.3 * dprog(u)), u => 2600 + 1800 * dprog(u), 2.6, panAt(600, 470, 436, 300), 0.25, 0.3);
+noiseBand(TL.peak[0], TL.peak[1], u => Math.sin(Math.PI * u) * 0.2, u => 3200 + 1500 * u, 2.6, () => 0.15, 0.25, 0.2);
+noiseBand(TL.thWrite[0], TL.thWrite[1], u => Math.min(1, u * 40) * Math.min(1, (1 - u) * 25) * (0.04 + 0.4 * dprog(u)), u => 2300 + 2300 * dprog(u) + 700 * Math.sin(u * 40), 2.6, panAt(521, 161, 436, 300), 0.25, 0.35);
+noiseBand(TL.thWrite[0], TL.thWrite[1], u => (0.02 + 0.22 * dprog(u)), u => 420 + 200 * dprog(u), 1.2, panAt(521, 161, 436, 600), 0.2);
 [74, 81].forEach((m, i) => { pluck(TL.seamT + i * 0.03, hz(m), 0.20, 0.1 - i * 0.2, 0.9); bell(TL.seamT + i * 0.03, hz(m + 12), 0.07, 0, 1.6); });       // the join: a perfect fifth
 TL.thaDots.forEach((t, i) => { const pan = [0.25, -0.25, 0][i]; pluck(t, hz([81, 83, 86][i]), 0.34, pan, 0.6); pluck(t, hz([69, 71, 74][i]), 0.10, 0, 0.5); tick(t - 0.005, 0.26, 1500 + 300 * i, pan); thump(t, 160, 90, 0.18, 0.08); });
 

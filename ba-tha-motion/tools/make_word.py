@@ -36,11 +36,12 @@ def save(name, a):
     ys, xs = np.nonzero(a > 0.01); y0, y1, x0, x1 = (ys.min() // SS - 3), (ys.max() // SS + 4), (xs.min() // SS - 3), (xs.max() // SS + 4)
     sub = a[y0 * SS:y1 * SS, x0 * SS:x1 * SS]; out = np.zeros(sub.shape + (4,), np.uint8); out[..., 0], out[..., 1], out[..., 2] = 150, 168, 189; out[..., 3] = (sub * 255).astype(np.uint8)
     Image.fromarray(out, 'RGBA').save(f'assets/{name}.png'); man[name] = dict(x=X0 + x0, y=Y0 + y0, w=x1 - x0, h=y1 - y0, scale=SS)
-save('word_th', th_final); save('word_base', base)
+peak = th_final.copy(); peak[:, :cx(488)] = 0; peak[cy(585):, :] = 0          # the peak plus a little of the wall, so it is attached to the base from its first frame
+save('word_th', th_final); save('word_base', base); save('word_peak', peak)
 # pen paths (centre-lines) and dot positions, in card coordinates
 BA_CTRL = [[706, 435], [711, 467], [716, 504], [715, 539], [706, 569], [684, 585], [644, 593], [594, 599], [544, 602], [494, 604], [444, 599], [404, 585], [372, 565], [349, 537], [337, 504], [338, 467], [346, 431]]
 sq = lambda p: [p[0] - S_SHIFT, (551 - (551 - p[1]) * K) if (p[1] < 551 and p[0] >= 684) else p[1]]
-man['word'] = dict(S=S_SHIFT, K=K, xa=XA, xe=xe, th_ctrl=[sq(p) for p in BA_CTRL], base_ctrl=[[XA, 599], [575, 603], [535, 601], [500, 594], [480, 588]],
+man['word'] = dict(S=S_SHIFT, K=K, xa=XA, xe=xe, peak_ctrl=[[530, 586], [528, 560], [524, 525], [521, 490]], th_ctrl=[sq(p) for p in BA_CTRL], base_ctrl=[[XA, 599], [575, 603], [535, 601], [500, 594], [480, 588]],
                    th_dots=[[d['cx'] - S_SHIFT, d['cy']] for d in man['tha_dots']], dot_target=[655, 706])
 json.dump(man, open('assets/manifest.json', 'w'), indent=1, default=float)
 print({k: man[k] for k in ('word_th', 'word_base')}); print(man['word']['th_dots'])

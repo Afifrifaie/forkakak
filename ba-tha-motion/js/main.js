@@ -74,14 +74,14 @@
     const out = document.createElement('canvas'); out.width = pw; out.height = ph;
     return { rect, cvs, c: out, x: out.getContext('2d'), id, a, s, P, wet, base, wetLen };
   }
-  function drawReveal(g, R, front, wetOn = true) {
+  function drawReveal(g, R, front, wetOn = true, feather = FEATHER) {
     const { x, y, w, h } = R.rect;
-    if (front >= R.P.total + FEATHER + R.wetLen) { g.drawImage(R.cvs, x, y, w, h); return; }
-    if (front <= -FEATHER) return;
+    if (front >= R.P.total + feather + R.wetLen) { g.drawImage(R.cvs, x, y, w, h); return; }
+    if (front <= -feather) return;
     const d = R.id.data, { a, s, wet, base, wetLen } = R; const n = a.length;
     for (let i = 0; i < n; i++) {
       const al = a[i]; if (!al) { d[i * 4 + 3] = 0; continue; }
-      const dd = front - s[i]; const k = clamp(dd / FEATHER);
+      const dd = front - s[i]; const k = clamp(dd / feather);
       if (k <= 0) { d[i * 4 + 3] = 0; continue; }
       const wv = wetOn && dd < wetLen ? Math.pow(1 - dd / wetLen, 1.5) : 0;
       d[i * 4] = base[0] + (wet[0] - base[0]) * wv; d[i * 4 + 1] = base[1] + (wet[1] - base[1]) * wv; d[i * 4 + 2] = base[2] + (wet[2] - base[2]) * wv;
@@ -131,6 +131,37 @@
     g.restore();
   }
 
+  // ---------- eraser: the pen's other end, a reed with a rubber block ----------
+  function drawEraser(g, x, y, sc, alpha, lift) {
+    if (alpha <= 0.01) return;
+    g.save(); g.translate(x, y); g.rotate(0.62); g.scale(sc, sc); g.globalAlpha = alpha;
+    g.save(); g.globalAlpha = alpha * (0.22 - lift * 0.1); g.fillStyle = '#31465f'; g.beginPath(); g.ellipse(6 + lift * 14, 5 + lift * 10, 20 + lift * 6, 6 + lift * 3, -0.3, 0, 7); g.fill(); g.restore();
+    g.translate(0, -lift * 22);
+    const grd = g.createLinearGradient(-14, 0, 14, 0); grd.addColorStop(0, 'rgb(252,222,160)'); grd.addColorStop(0.55, 'rgb(243,198,129)'); grd.addColorStop(1, 'rgb(196,140,82)');
+    g.fillStyle = grd; g.beginPath(); g.moveTo(-9, -66); g.lineTo(9, -66); g.lineTo(13, -214); g.quadraticCurveTo(0, -226, -13, -214); g.closePath(); g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.35)'; g.beginPath(); g.moveTo(-5, -72); g.lineTo(-2, -72); g.lineTo(-5, -208); g.lineTo(-8, -206); g.closePath(); g.fill();
+    g.fillStyle = rgb(CORAL, 0.95); g.beginPath(); g.moveTo(-10, -150); g.lineTo(11, -146); g.lineTo(11.5, -132); g.lineTo(-9.5, -136); g.closePath(); g.fill();
+    g.fillStyle = 'rgb(66,84,110)'; g.beginPath(); g.roundRect(-12, -80, 24, 17, 3); g.fill();                  // metal ferrule
+    g.fillStyle = 'rgba(243,198,129,0.55)'; g.fillRect(-12, -74, 24, 1.6);
+    g.fillStyle = 'rgb(232,150,134)'; g.beginPath(); g.moveTo(-15, -64); g.lineTo(15, -64); g.lineTo(16, -8); g.quadraticCurveTo(15, 2, 6, 3); g.lineTo(-7, 3); g.quadraticCurveTo(-16, 2, -16, -8); g.closePath(); g.fill();   // rubber block
+    g.fillStyle = 'rgba(255,255,255,0.28)'; g.fillRect(-12, -60, 4, 48);
+    g.fillStyle = 'rgba(95,120,150,0.55)'; g.beginPath(); g.moveTo(-16, -9); g.lineTo(16, -9); g.quadraticCurveTo(15, 2, 6, 3); g.lineTo(-7, 3); g.quadraticCurveTo(-16, 2, -16, -9); g.closePath(); g.fill();   // worn, ink-grey face
+    g.restore();
+  }
+  function eraseCrumbs(g, t, z) {
+    const t0 = TL.retract[0], t1 = TL.retract[1]; if (t < t0 || t > t1 + 0.5) return;
+    const dt = 0.011, i1 = Math.floor((Math.min(t, t1) - t0) / dt);
+    for (let i = Math.max(0, i1 - 70); i <= i1; i++) {
+      const tb = t0 + i * dt, age = t - tb; if (age < 0 || age > 0.5 || hash(i * 7 + 3) < 0.5) continue;
+      const u = (tb - t0) / (t1 - t0); const pos = pathAt(R_ba.P, G.frontAt(u) - G.featherAt(u) * 0.5);
+      const vx = (hash(i * 3 + 11) - 0.2) * 60 / z, vy = (hash(i * 5 + 2) - 0.85) * 120 / z, k = age / 0.5;
+      const px = pos[0] + vx * age, py = pos[1] + vy * age + 700 * age * age / z;
+      const pink = hash(i + 41) > 0.55, col = pink ? [232, 150, 134] : [125, 146, 172];
+      g.save(); g.translate(px, py); g.rotate(hash(i + 9) * 6 + age * 4); g.fillStyle = rgb(col, (1 - k) * 0.9);
+      const w = (2.2 + hash(i + 7) * 3.2) / z; g.beginPath(); g.roundRect(-w, -w * 0.45, w * 2, w * 0.9, w * 0.4); g.fill(); g.restore();
+    }
+  }
+
   // ---------- layer helpers ----------
   const drawLayer = (g, name, dx = 0, dy = 0) => { const l = lay(name); g.drawImage(IMG[name], l.x + dx, l.y + dy, l.w, l.h); };
   const centre = n => { const l = lay(n); return [l.x + l.w / 2, l.y + l.h / 2]; };
@@ -167,54 +198,67 @@
 
   // ---------- build everything once ----------
   const G = {};                                  // derived geometry
-  let R_ba, R_base, R_th, bigCv, bigX;
+  let R_ba, R_base, R_peak, R_th, bigCv, bigX;
   function setup() {
     // isolated ba, reveal-able
     const l = lay('ba_body'); const c1 = document.createElement('canvas'); c1.width = l.w * SS; c1.height = l.h * SS; c1.getContext('2d').drawImage(IMG.ba_body, 0, 0);
     R_ba = buildReveal(c1, l, BA_CTRL, WET_BLUE, BLUE, 70);
     // the joined word: a short base stroke (carries the tooth to the peak) and the final-form tha (bowl with a small peak), both designed in tools/make_word.py
     const WD = MAN.word; G.WD = WD;
-    const mkR = (name, ctrl) => { const lw = lay(name); const c = document.createElement('canvas'); c.width = lw.w * SS; c.height = lw.h * SS; c.getContext('2d').drawImage(IMG[name], 0, 0); return buildReveal(c, lw, ctrl, WET_BLUE, BLUE, 60); };
-    R_base = mkR('word_base', WD.base_ctrl); R_th = mkR('word_th', WD.th_ctrl);
+    const mkR = (name, ctrl) => { const lw = lay(name); const c = document.createElement('canvas'); c.width = lw.w * SS; c.height = lw.h * SS; c.getContext('2d').drawImage(IMG[name], 0, 0); return buildReveal(c, lw, ctrl, [110, 133, 162], BLUE, 34); };   // lighter, shorter wet-ink shade on the short word strokes: no dark blob while the peak is drawn
+    R_base = mkR('word_base', WD.base_ctrl); R_peak = mkR('word_peak', WD.peak_ctrl); R_th = mkR('word_th', WD.th_ctrl);
     // retract target: the point of the ba path where the band reaches the seam
     const pts = R_ba.P.pts; let sc = 0; for (let i = 0; i < pts.length; i++) if (pts[i][1] > 560 && pts[i][0] <= SEAM_X) { sc = R_ba.P.cum[i]; break; }
     G.sCut = sc;
+    G.frontAt = u => lerp(R_ba.P.total + 26, G.sCut + 4, eIO3(u));       // where the erased edge is (path arc-length)
+    G.featherAt = u => lerp(26, 4, eIO3(u));                           // the smudged edge tightens as the eraser finishes
     G.dotHome = centre('ba_dot'); G.dotTarget = WD.dot_target; G.thaDots = WD.th_dots;
     bigCv = document.createElement('canvas'); bigCv.width = W; bigCv.height = H; bigX = bigCv.getContext('2d');
     G.wordC = [436, 560];                                  // centre of the finished word (for the pulse)
   }
 
   // ---------- pen choreography ----------
-  function penState(t) {
-    const segs = [];
-    const P = R_ba.P, PB = R_base.P, PT = R_th.P; const baStart = pathAt(P, 0), baEnd = pathAt(P, P.total), seamPt = pathAt(P, G.sCut);
-    const park = [850, 330];
-    segs.push({ t0: TL.penIn[0], t1: TL.baBody[0], from: [park[0] + 60, park[1] - 60], to: baStart, lift: [1, 0.15], a: [0, 1] });
-    segs.push({ t0: TL.baBody[0], t1: TL.baBody[1], path: P, prog: u => TL.prog(u) });
-    segs.push({ t0: TL.baBody[1], t1: TL.baDot - 0.02, from: baEnd, to: G.dotHome, lift: [0.5, 0], arc: 46 });
-    segs.push({ t0: TL.baDot - 0.02, t1: TL.baDot + 0.18, hold: G.dotHome, lift: [0, 0.35] });
-    segs.push({ t0: TL.baDot + 0.18, t1: TL.penExit[1], from: G.dotHome, to: [park[0] + 90, park[1] - 80], lift: [0.3, 1], a: [1, 0] });
-    // retract: pen appears at the left tip and pulls the ink back to the tooth
-    segs.push({ t0: TL.penBack[0], t1: TL.penBack[1], hold: baEnd, lift: [1, 0.2], a: [0, 1] });
-    segs.push({ t0: TL.retract[0], t1: TL.retract[1], path: P, prog: u => 1 - (1 - G.sCut / P.total) * eIO3(u) });
-    segs.push({ t0: TL.retract[1], t1: TL.wordBase[0], hold: seamPt, lift: [0.1, 0.05] });
-    segs.push({ t0: TL.wordBase[0], t1: TL.wordBase[1], path: PB, prog: u => TL.prog(u) });
-    segs.push({ t0: TL.wordBase[1], t1: TL.thWrite[0], from: pathAt(PB, PB.total), to: pathAt(PT, 0), lift: [0.25, 0.15], arc: 16 });
-    segs.push({ t0: TL.thWrite[0], t1: TL.thWrite[1], path: PT, prog: u => TL.prog(u) });
-    // ث dots
-    const td = G.thaDots; let prev = pathAt(PT, PT.total), pt = TL.thWrite[1];
-    TL.thaDots.forEach((ts, i) => { segs.push({ t0: pt, t1: ts - 0.02, from: prev, to: td[i], lift: [0.5, 0], arc: 40 }); segs.push({ t0: ts - 0.02, t1: ts + 0.18, hold: td[i], lift: [0, 0.35] }); prev = td[i]; pt = ts + 0.18; });
-    segs.push({ t0: pt, t1: TL.penExit2[1], from: prev, to: [prev[0] + 150, prev[1] - 190], lift: [0.3, 1], a: [1, 0] });
+  function evalSegs(segs, t) {
     for (const s of segs) {
       if (t < s.t0 || t > s.t1) continue;
       const u = (t - s.t0) / (s.t1 - s.t0); let p, lift = 0, a = 1;
-      if (s.path) { p = pathAt(s.path, s.path.total * s.prog(u)); p = [p[0] + Math.sin(t * 31) * 0.4, p[1] + Math.cos(t * 27) * 0.4]; }
+      if (s.path) {
+        const sp = s.path.total * s.prog(u); p = pathAt(s.path, sp); p = [p[0] + Math.sin(t * 31) * 0.4, p[1] + Math.cos(t * 27) * 0.4];
+        if (s.scrub) { const a0 = pathAt(s.path, sp - 3), a1 = pathAt(s.path, sp + 3); const dx = a1[0] - a0[0], dy = a1[1] - a0[1], dl = Math.hypot(dx, dy) || 1, o = s.scrub * Math.sin(2 * Math.PI * 6.5 * t); p = [p[0] + dx / dl * o, p[1] + dy / dl * o]; lift = 0.05 + 0.05 * Math.abs(Math.sin(2 * Math.PI * 6.5 * t)); }
+      }
       else if (s.hold) { p = s.hold; lift = lerp(s.lift[0], s.lift[1], u); }
       else { const e = eIO3(u); p = [lerp(s.from[0], s.to[0], e), lerp(s.from[1], s.to[1], e) - (s.arc || 0) * Math.sin(Math.PI * e)]; lift = lerp(s.lift[0], s.lift[1], e); }
       if (s.a) a = lerp(s.a[0], s.a[1], eIO2(u));
       return { x: p[0], y: p[1], alpha: a, lift };
     }
     return null;
+  }
+  function penState(t) {
+    const segs = [];
+    const P = R_ba.P, PB = R_base.P, PK = R_peak.P, PT = R_th.P; const baStart = pathAt(P, 0), baEnd = pathAt(P, P.total), seamPt = pathAt(P, G.sCut);
+    const park = [850, 330];
+    segs.push({ t0: TL.penIn[0], t1: TL.baBody[0], from: [park[0] + 60, park[1] - 60], to: baStart, lift: [1, 0.15], a: [0, 1] });
+    segs.push({ t0: TL.baBody[0], t1: TL.baBody[1], path: P, prog: u => TL.prog(u) });
+    segs.push({ t0: TL.baBody[1], t1: TL.baDot - 0.02, from: baEnd, to: G.dotHome, lift: [0.5, 0], arc: 46 });
+    segs.push({ t0: TL.baDot - 0.02, t1: TL.baDot + 0.18, hold: G.dotHome, lift: [0, 0.35] });
+    segs.push({ t0: TL.baDot + 0.18, t1: TL.penExit[1], from: G.dotHome, to: [park[0] + 90, park[1] - 80], lift: [0.3, 1], a: [1, 0] });
+    // the pen comes back to where the eraser stopped, then writes the base stroke and the tha
+    segs.push({ t0: TL.penReturn[0], t1: TL.wordBase[0], from: [seamPt[0] + 70, seamPt[1] - 130], to: seamPt, lift: [1, 0.1], a: [0, 1] });
+    segs.push({ t0: TL.wordBase[0], t1: TL.wordBase[1], path: PB, prog: u => TL.prog(u) });
+    segs.push({ t0: TL.wordBase[1], t1: TL.peak[0], from: pathAt(PB, PB.total), to: pathAt(PK, 0), lift: [0.25, 0.15], arc: 14 });
+    segs.push({ t0: TL.peak[0], t1: TL.peak[1], path: PK, prog: u => eIO2(u) });                       // the small peak: an upstroke from the base
+    segs.push({ t0: TL.thWrite[0], t1: TL.thWrite[1], path: PT, prog: u => TL.prog(u) });            // then the bowl, from the peak's tip
+    const td = G.thaDots; let prev = pathAt(PT, PT.total), pt = TL.thWrite[1];
+    TL.thaDots.forEach((ts, i) => { segs.push({ t0: pt, t1: ts - 0.02, from: prev, to: td[i], lift: [0.5, 0], arc: 40 }); segs.push({ t0: ts - 0.02, t1: ts + 0.18, hold: td[i], lift: [0, 0.35] }); prev = td[i]; pt = ts + 0.18; });
+    segs.push({ t0: pt, t1: TL.penExit2[1], from: prev, to: [prev[0] + 150, prev[1] - 190], lift: [0.3, 1], a: [1, 0] });
+    return evalSegs(segs, t);
+  }
+  function eraserState(t) {
+    const P = R_ba.P, tip = pathAt(P, P.total), seamPt = pathAt(P, G.sCut), segs = [];
+    segs.push({ t0: TL.eraserIn[0], t1: TL.eraserIn[1], from: [tip[0] - 60, tip[1] - 150], to: tip, lift: [1, 0.15], a: [0, 1] });
+    segs.push({ t0: TL.retract[0], t1: TL.retract[1], path: P, prog: u => (G.frontAt(u) - G.featherAt(u) * 0.5) / P.total, scrub: 9 });
+    segs.push({ t0: TL.retract[1], t1: TL.eraserOut[1], from: seamPt, to: [seamPt[0] - 90, seamPt[1] - 170], lift: [0.2, 1], a: [1, 0] });
+    return evalSegs(segs, t);
   }
 
   // ---------- camera ----------
@@ -325,7 +369,7 @@
       drawReveal(g, R_ba, fr);
     } else {
       const u = seg(t, TL.retract[0], TL.retract[1]);
-      if (u < 1) drawReveal(g, R_ba, lerp(R_ba.P.total + FEATHER + 70, G.sCut, eIO3(u)), false);
+      if (u < 1) drawReveal(g, R_ba, G.frontAt(u), false, G.featherAt(u));
       else { g.save(); g.beginPath(); g.rect(SEAM_X, 0, 400, 4000); g.clip(); g.drawImage(R_ba.cvs, R_ba.rect.x, R_ba.rect.y, R_ba.rect.w, R_ba.rect.h); g.restore(); }
     }
     // the dot: stamped under the isolated ba, then slides under the tooth
@@ -337,6 +381,7 @@
     }
     // the joined word: base stroke from the tooth, then the final-form tha
     if (t >= TL.wordBase[0]) { const u = seg(t, TL.wordBase[0], TL.wordBase[1]); drawReveal(g, R_base, t >= TL.wordBase[1] ? 1e4 : lerp(-FEATHER, R_base.P.total + FEATHER, TL.prog(u))); }
+    if (t >= TL.peak[0]) { const u = seg(t, TL.peak[0], TL.peak[1]); drawReveal(g, R_peak, t >= TL.peak[1] ? 1e4 : lerp(-FEATHER, R_peak.P.total + FEATHER, eIO2(u))); }
     if (t >= TL.thWrite[0]) { const u = seg(t, TL.thWrite[0], TL.thWrite[1]); drawReveal(g, R_th, t >= TL.thWrite[1] ? 1e4 : lerp(-FEATHER, R_th.P.total + FEATHER, TL.prog(u))); }
     G.thaDots.forEach((d, i) => { const t0 = TL.thaDots[i]; popAt(g, 'ba_dot', d[0], d[1], seg(t, t0, t0 + TL.dotDur), [-0.6, 0.6, -0.4][i]); ring(g, d[0], d[1], t0 + 0.04, t, BLUE, 30, 88, 3.5); burst(g, d[0], d[1], t0 + 0.03, t, BLUE, 7, 62, 7, i * 13 + 1); });
     g.restore();
@@ -349,8 +394,11 @@
     }
 
     inkFlecks(ctx, t, z);
+    eraseCrumbs(ctx, t, z);
     const p = penState(t);
     if (p) drawPen(ctx, p.x, p.y, 1 / z, p.alpha, p.lift);
+    const er = eraserState(t);
+    if (er) drawEraser(ctx, er.x, er.y, 1 / z, er.alpha, er.lift);
     ctx.restore();
 
     // ===== screen space =====
