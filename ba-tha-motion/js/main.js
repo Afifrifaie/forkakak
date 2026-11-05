@@ -33,7 +33,7 @@
   // ---------- pen paths ----------
   // centre-line of the isolated ba (written right -> left): measured against the glyph, same stroke as the tha' card
   const BA_CTRL = [[706, 435], [711, 467], [716, 504], [715, 539], [706, 569], [684, 585], [644, 593], [594, 599], [544, 602], [494, 604], [444, 599], [404, 585], [372, 565], [349, 537], [337, 504], [338, 467], [346, 431]];
-  const SEAM_X = 640;                                // the isolated ba keeps its tooth/wall/curve to the right of this x; the base stroke is written from here
+  const SEAM_X = 600;                                // the isolated ba keeps its tooth/wall/curve to the right of this x; the base stroke is written from here
 
   function catmull(P, step = 2.5) {
     const out = []; const pts = [P[0], ...P, P[P.length - 1]];
@@ -181,7 +181,7 @@
     G.sCut = sc;
     G.dotHome = centre('ba_dot'); G.dotTarget = WD.dot_target; G.thaDots = WD.th_dots;
     bigCv = document.createElement('canvas'); bigCv.width = W; bigCv.height = H; bigX = bigCv.getContext('2d');
-    G.wordC = [467, 560];                                  // centre of the finished word (for the pulse)
+    G.wordC = [436, 560];                                  // centre of the finished word (for the pulse)
   }
 
   // ---------- pen choreography ----------
@@ -218,7 +218,7 @@
   }
 
   // ---------- camera ----------
-  const Z_END = 1.5, C_END = [467, 612];
+  const Z_END = 1.4, C_END = [436, 618];
   const CAM = [
     { t: 0, s: 1, x: 540, y: 675 }, { t: 5.95, s: 1, x: 540, y: 675 },
     { t: 7.4, s: 2.4, x: 528, y: 535 }, { t: 7.8, s: 2.4, x: 528, y: 535 },
